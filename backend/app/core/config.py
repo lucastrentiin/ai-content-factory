@@ -4,7 +4,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     access_token_minutes: int = 60 * 12
     public_base_url: str = "http://localhost:8000"
     frontend_url: str = "http://localhost:3000"
-    cors_origins: list[str] = ["http://localhost:3000"]
+    cors_origins: str = "http://localhost:3000"  # separados por vírgula
     log_level: str = "INFO"
     log_json: bool = True
 
@@ -73,12 +73,9 @@ class Settings(BaseSettings):
     login_rate_limit_per_minute: int = 10
     render_timeout_s: int = 1800
 
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def _split_cors(cls, v):
-        if isinstance(v, str):
-            return [s.strip() for s in v.split(",") if s.strip()]
-        return v
+    @property
+    def cors_list(self) -> list[str]:
+        return [s.strip() for s in self.cors_origins.split(",") if s.strip()]
 
     @property
     def is_production(self) -> bool:

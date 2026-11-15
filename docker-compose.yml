@@ -1,0 +1,163 @@
+# AI Content Factory — stack completa.
+#   docker compose up -d --build
+# Interface: http://SEU_SERVIDOR (ou https://seu-dominio quando SITE_ADDRESS for um domínio)
+name: content-factory
+
+x-backend: &backend
+  build: ./backend
+  image: content-factory-backend:latest
+  restart: unless-stopped
+  env_file: .env
+  environment: &backend-env
+    DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-factory}:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-factory}
+    REDIS_URL: redis://redis:6379/0
+    STORAGE_BACKEND: s3
+    S3_ENDPOINT_URL: http://storage:8333
+    S3_ACCESS_KEY: ${S3_ACCESS_KEY:-factory}
+    S3_SECRET_KEY: ${S3_SECRET_KEY:?defina S3_SECRET_KEY}
+    S3_BUCKET: ${S3_BUCKET:-content-factory}
+    WORK_DIR: /data/work
+  volumes:
+    - work:/data/work
+  depends_on:
+    db: { condition: service_healthy }
+    redis: { condition: service_healthy }
+    storage: { condition: service_healthy }
+  logging: &logging
+    driver: json-file
+    options: { max-size: "20m", max-file: "5" }
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-factory}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-factory}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    logging: *logging
+
+  # Armazenamento de objetos compatível com S3 (SeaweedFS, Apache-2.0). Qualquer S3 (AWS, R2, MinIO) também funciona.
+  storage:
+    image: chrislusf/seaweedfs:3.97
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        printf '{"identities":[{"name":"factory","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin","Read","Write","List","Tagging"]}]}'
+        "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY" > /tmp/s3.json &&
+        exec weed server -dir=/data -ip.bind=0.0.0.0 -volume.max=0 -s3 -s3.port=8333 -s3.config=/tmp/s3.json
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-factory}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?defina S3_SECRET_KEY}
+    volumes: [objectdata:/data]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:9333/cluster/status || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    logging: *logging
+
+  api:
+    <<: *backend
+    command: ["api"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  worker:
+    <<: *backend
+    command: ["worker"]
+    environment:
+      <<: *backend-env
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+    depends_on:
+      api: { condition: service_healthy }
+
+  beat:
+    <<: *backend
+    command: ["beat"]
+    depends_on:
+      api: { condition: service_healthy }
+
+  web:
+    build: ./frontend
+    image: content-factory-web:latest
+    restart: unless-stopped
+    depends_on:
+      api: { condition: service_healthy }
+    logging: *logging
+
+  proxy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+      FILES_ADDRESS: ${FILES_ADDRESS:-:8089}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+    depends_on: [web, api]
+    logging: *logging
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER:-factory}
+      POSTGRES_DB: ${POSTGRES_DB:-factory}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ./deploy/backup.sh:/backup.sh:ro
+      - ./backups:/backups
+    depends_on:
+      db: { condition: service_healthy }
+    logging: *logging
+
+  # Opcional: orquestração visual com n8n (docker compose --profile n8n up -d).
+  # Use um token de API (Configurações → Tokens de API) para chamar http://api:8000/api/...
+  n8n:
+    image: n8nio/n8n:1.97.1
+    profiles: ["n8n"]
+    restart: unless-stopped
+    environment:
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PORT: 5678
+      GENERIC_TIMEZONE: ${TZ:-America/Sao_Paulo}
+    ports: ["127.0.0.1:5678:5678"]
+    volumes: [n8ndata:/home/node/.n8n]
+
+volumes:
+  pgdata:
+  redisdata:
+  objectdata:
+  work:
+  caddydata:
+  n8ndata:

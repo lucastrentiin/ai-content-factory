@@ -51,7 +51,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan, docs_url="/api/docs", openapi_url="/api/openapi.json")
 app.add_middleware(RateLimitMiddleware)
-app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=settings.cors_list, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 STATUS = {NotFound: 404, ValidationFailed: 422, Conflict: 409, BudgetExceeded: 402, MissingCredentials: 424}
 

@@ -1,0 +1,29 @@
+# Proxy reverso: TLS automático (Let's Encrypt) quando SITE_ADDRESS for um domínio.
+{$SITE_ADDRESS::80} {
+	encode gzip
+	request_body {
+		max_size 600MB
+	}
+	# API, WebSocket e documentação → FastAPI
+	handle /api/* {
+		reverse_proxy api:8000 {
+			flush_interval -1
+		}
+	}
+	# Interface → Next.js
+	handle {
+		reverse_proxy web:3000
+	}
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options SAMEORIGIN
+		-Server
+	}
+}
+
+# Arquivos públicos (opcional): necessário para publicar Reels pela API do Instagram.
+# Defina FILES_ADDRESS=files.seudominio.com e S3_PUBLIC_ENDPOINT_URL=https://files.seudominio.com
+{$FILES_ADDRESS::8089} {
+	reverse_proxy storage:8333
+}
