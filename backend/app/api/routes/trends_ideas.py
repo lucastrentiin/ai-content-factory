@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
@@ -8,7 +8,17 @@ from app.api.deps import editor, viewer
 from app.api.utils import apply_updates, get_or_404, page, serialize
 from app.core.db import get_db
 from app.integrations.trends.sources import TrendItem
-from app.models import Channel, ContentEngine, Idea, IdeaTrend, ProductionJob, Trend, TrendSnapshot, TrendSource, User
+from app.models import (
+    Channel,
+    ContentEngine,
+    Idea,
+    IdeaTrend,
+    ProductionJob,
+    Trend,
+    TrendSnapshot,
+    TrendSource,
+    User,
+)
 from app.pipeline.orchestrator import create_production
 from app.schemas import IdeaGenerateIn, IdeaIn, IdeaUpdate, ProduceIn, TrendImportIn, TrendSourceUpdate
 from app.services import ideas as ideas_svc

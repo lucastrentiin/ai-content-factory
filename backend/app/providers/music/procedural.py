@@ -25,7 +25,7 @@ CHORD = {"M": [0, 4, 7], "m": [0, 3, 7], "dim": [0, 3, 6]}
 
 def _env(n: int, attack: float, release: float) -> np.ndarray:
     e = np.ones(n)
-    a, r = int(SR * attack), int(SR * release)
+    a, r = min(n // 2, int(SR * attack)), min(n // 2, int(SR * release))  # trechos curtos (último compasso)
     if a:
         e[:a] = np.linspace(0, 1, a)
     if r:

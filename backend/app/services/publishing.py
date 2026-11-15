@@ -194,7 +194,7 @@ def export_package(db: Session, pub: Publication) -> bytes:
     """Pacote para publicação assistida: vídeo, capa e metadados."""
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        video = db.get(Asset, pub.video_asset_id)
+        video = db.get(Asset, pub.video_asset_id) if pub.video_asset_id else None
         if video:
             z.writestr("video.mp4", read_asset(video))
         if pub.cover_asset_id:

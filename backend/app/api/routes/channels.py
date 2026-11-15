@@ -15,8 +15,25 @@ from app.core.crypto import encrypt_json
 from app.core.db import get_db
 from app.core.security import sign_state, verify_state
 from app.integrations.social import PLATFORMS, get_platform
-from app.models import Channel, ChannelEngine, ContentCategory, ContentEngine, Platform, ProductionJob, SocialAccount, User
-from app.schemas import ChannelEngineIn, ChannelIn, ChannelBase, EngineIn, EngineUpdate, SocialAccountIn, SocialAccountUpdate
+from app.models import (
+    Channel,
+    ChannelEngine,
+    ContentCategory,
+    ContentEngine,
+    Platform,
+    ProductionJob,
+    SocialAccount,
+    User,
+)
+from app.schemas import (
+    ChannelBase,
+    ChannelEngineIn,
+    ChannelIn,
+    EngineIn,
+    EngineUpdate,
+    SocialAccountIn,
+    SocialAccountUpdate,
+)
 from app.services.common import audit
 
 router = APIRouter(tags=["channels"])

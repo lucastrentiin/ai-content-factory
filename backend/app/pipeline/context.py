@@ -12,7 +12,17 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.events import publish_event
-from app.models import AgentRun, Channel, ContentEngine, Platform, ProductionJob, Scene, Script, ScriptVersion, Template
+from app.models import (
+    AgentRun,
+    Channel,
+    ContentEngine,
+    Platform,
+    ProductionJob,
+    Scene,
+    Script,
+    ScriptVersion,
+    Template,
+)
 from app.providers.router import ProviderRouter
 from app.services.costs import CallContext
 

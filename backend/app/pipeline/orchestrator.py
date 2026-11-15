@@ -19,11 +19,27 @@ from app.core.db import SessionLocal
 from app.core.errors import BudgetExceeded, Conflict, FactoryError, NotFound, ValidationFailed
 from app.core.events import publish_event, redis_client
 from app.core.logging import get_logger
-from app.models import AgentRun, ApiUsage, Channel, ContentEngine, Episode, Idea, ProductionJob, Publication, Scene
+from app.models import (
+    AgentRun,
+    ApiUsage,
+    Channel,
+    ContentEngine,
+    Episode,
+    Idea,
+    ProductionJob,
+    Publication,
+    Scene,
+)
 from app.models.enums import JobStatus, StepStatus
 from app.pipeline.agents.audio import audio_generator, voice_director
 from app.pipeline.agents.design import art_director, character_designer, scene_planner
-from app.pipeline.agents.production import RedoSteps, publisher, quality_controller, video_editor, visual_generator
+from app.pipeline.agents.production import (
+    RedoSteps,
+    publisher,
+    quality_controller,
+    video_editor,
+    visual_generator,
+)
 from app.pipeline.agents.writing import fact_checker, script_editor, story_writer
 from app.pipeline.context import StepContext
 from app.services.common import audit, notify, syslog

@@ -63,7 +63,7 @@ class ElevenLabsTTS(TTSProvider):
 
 def _words_from_alignment(al: dict) -> list[dict]:
     chars, starts, ends = al.get("characters") or [], al.get("character_start_times_seconds") or [], al.get("character_end_times_seconds") or []
-    words, cur, ws = [], "", None
+    words, cur, ws, prev_end = [], "", None, None
     for ch, st, en in zip(chars, starts, ends, strict=False):
         if ch.isspace():
             if cur:

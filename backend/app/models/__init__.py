@@ -1,5 +1,12 @@
 from app.models.base import Base
-from app.models.channels import Channel, ChannelEngine, ContentCategory, ContentEngine, Platform, SocialAccount
+from app.models.channels import (
+    Channel,
+    ChannelEngine,
+    ContentCategory,
+    ContentEngine,
+    Platform,
+    SocialAccount,
+)
 from app.models.content import (
     Asset,
     Character,

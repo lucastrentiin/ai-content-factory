@@ -9,7 +9,6 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.crypto import decrypt_json
 from app.core.errors import FactoryError
 from app.integrations.social import get_platform
 from app.models import (
@@ -161,11 +160,12 @@ def breakdown(db: Session, dimension: str, channel_id: int | None = None) -> lis
 
 def timeseries(db: Session, days: int = 30, channel_id: int | None = None) -> list[dict]:
     since = datetime.now(UTC) - timedelta(days=days)
-    q = select(func.date_trunc("day", Publication.published_at), func.count()).where(Publication.status == "published",
+    day = func.date_trunc("day", Publication.published_at)
+    q = select(day, func.count()).where(Publication.status == "published",
                                                                                       Publication.published_at >= since)
     if channel_id:
         q = q.where(Publication.channel_id == channel_id)
-    pubs = dict(db.execute(q.group_by(1)).all())
+    pubs = dict(db.execute(q.group_by(day)).all())
     views: dict = {}
     for p, m in latest_metrics(db, channel_id):
         if p.published_at and p.published_at >= since:

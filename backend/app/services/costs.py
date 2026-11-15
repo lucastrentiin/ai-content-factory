@@ -98,8 +98,8 @@ def cost_summary(db: Session, days: int = 30) -> dict:
     by_provider = db.execute(select(ApiUsage.provider_key, ApiUsage.kind, cost, func.count(), func.avg(ApiUsage.duration_ms),
                                     func.sum(case((ApiUsage.success.is_(True), 1), else_=0)))
                              .where(ApiUsage.created_at >= since).group_by(ApiUsage.provider_key, ApiUsage.kind)).all()
-    by_day = db.execute(select(func.date_trunc("day", ApiUsage.created_at), cost)
-                        .where(ApiUsage.created_at >= since).group_by(1).order_by(1)).all()
+    day = func.date_trunc("day", ApiUsage.created_at)
+    by_day = db.execute(select(day, cost).where(ApiUsage.created_at >= since).group_by(day).order_by(day)).all()
     by_channel = db.execute(select(ApiUsage.channel_id, cost).where(ApiUsage.created_at >= since).group_by(ApiUsage.channel_id)).all()
     by_engine = db.execute(select(ApiUsage.engine_id, cost).where(ApiUsage.created_at >= since).group_by(ApiUsage.engine_id)).all()
     jobs = db.execute(select(func.count(), func.avg(ProductionJob.actual_cost_usd)).where(
