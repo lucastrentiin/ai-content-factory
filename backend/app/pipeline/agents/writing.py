@@ -155,18 +155,27 @@ def fact_checker(ctx: StepContext) -> dict:
         return {"skipped": True, "reason": "Motor não exige verificação de fatos"}
     v = ctx.script_version()
     claims = v.content.get("fact_claims") or [{"claim": s["narration"], "source": None} for s in v.content["scenes"] if s["narration"]]
-    if ctx.router.manual_llm():
-        reason = f"Verifique manualmente {len(claims)} afirmação(ões) e as fontes indicadas no roteiro antes de aprovar"
-        ctx.job.config = {**(ctx.job.config or {}), "force_review": True,
-                          "review_reasons": [*(ctx.job.config or {}).get("review_reasons", []), reason]}
-        v.content = {**v.content, "fact_check": [{"claim": c.get("claim"), "verified": False, "sources": [c["source"]] if c.get("source") else [],
-                                                   "note": "Fonte indicada pelo roteiro — confira"} for c in claims]}
-        return {"claims": len(claims), "unverified": len(claims), "manual_mode": True}
+    if ctx.router.manual_llm() or v.is_simulated is False and any(c.get("sources") or c.get("source") for c in claims):
+        # Verificação automática: as fontes indicadas no roteiro são abertas; só vai para revisão o que não se confirmar.
+        from app.services.factcheck import check_claims
+
+        results = check_claims(claims)
+        bad = [r for r in results if not r["verified"]]
+        if bad or not results:
+            reason = (f"{len(bad)} fato(s) sem fonte acessível: " + "; ".join((r["claim"] or "")[:60] for r in bad[:3])) if bad \
+                else "Roteiro de curiosidades sem fatos listados para verificar"
+            ctx.job.config = {**(ctx.job.config or {}), "force_review": True,
+                              "review_reasons": [*(ctx.job.config or {}).get("review_reasons", []), reason]}
+        v.content = {**v.content, "fact_check": results}
+        ctx.log("Fontes verificadas automaticamente", total=len(results), sem_confirmacao=len(bad))
+        return {"claims": len(results), "unverified": len(bad), "method": "automatic_source_check"}
     data, cand, simulated = llm_json(ctx.router, operation="fact_check", system=prompts.system_for("fact_checker"),
                                      prompt=prompts.fact_check_prompt(claims), task={"type": "fact_check", "claims": claims},
                                      max_tokens=6000)
-    results = data.get("claims", [])
-    unverified = [c for c in results if not c.get("verified") or float(c.get("confidence") or 0) < 0.7 or not c.get("sources")]
+    from app.services.factcheck import check_claims
+
+    results = check_claims(data.get("claims", [])) if not simulated else data.get("claims", [])
+    unverified = [c for c in results if not c.get("verified")]
     if simulated or unverified:
         reasons = ["Verificação de fatos simulada: requer revisão humana"] if simulated else \
                   [f"{len(unverified)} afirmação(ões) sem verificação confiável"]

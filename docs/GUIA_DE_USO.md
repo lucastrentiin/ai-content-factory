@@ -75,6 +75,10 @@ Também dá para escrever o roteiro você mesmo no campo "Roteiro próprio".
 Se o Claude responder com texto fora do formato, a plataforma avisa e reabre o pedido: peça
 "responda só com o JSON" e cole de novo.
 
+Colar é a **única** etapa manual. Análise de tendências, revisão do roteiro e verificação de fatos são automáticas.
+Nas curiosidades, o Claude informa um link de fonte para cada fato e a plataforma abre cada link: se todos existirem,
+o vídeo segue direto; se algum estiver quebrado ou faltar, o vídeo vai para revisão mostrando qual fato.
+
 ## Parte 4 — Revisar e publicar
 
 1. Na página da produção, assista ao vídeo. Aba **Cenas**: **Editar cena** (muda falas/câmera e refaz só o

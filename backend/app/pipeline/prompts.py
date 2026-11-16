@@ -29,7 +29,8 @@ SCRIPT_SCHEMA = {
                 "visual_description": "descrição visual detalhada da cena (para gerador de imagem)",
                 "emotion": "string", "camera": "static|zoom_in|zoom_out|slow_zoom|pan_left|pan_right|shake",
                 "transition": "cut|fade", "sfx": ["whoosh|boom|knock|crash|boing|ding|pop"], "on_screen_text": "texto curto opcional"}],
-    "fact_claims": [{"claim": "afirmação factual", "source": "fonte verificável (URL ou referência) ou null"}],
+    "fact_claims": [{"claim": "afirmação factual", "sources": ["URL completa de fonte confiável que confirma o fato"],
+                     "confidence": "0..1 (sua certeza de que o fato está correto)"}],
     "hashtags": ["string"],
     "next_episode_hook": "string (apenas séries)",
     "publication": {"title": "título para as redes (<= 90 caracteres)", "description": "legenda/descrição curta com chamada para comentar",
@@ -104,7 +105,9 @@ def script_prompt(*, idea: dict, channel: dict, engine: dict, target_s: int, pla
     if variant:
         parts.append(f"Variação de teste A/B: {variant}")
     if cfg.get("requires_fact_check"):
-        parts.append("Este motor exige fatos verificáveis: liste cada afirmação factual em fact_claims com fonte. Não invente dados.")
+        parts.append("Este motor exige fatos verificáveis: liste CADA afirmação factual em fact_claims com URL completa de uma fonte "
+                     "confiável (enciclopédia, órgão oficial, universidade, veículo reconhecido) e sua confiança. Os links são abertos "
+                     "automaticamente: URLs inventadas reprovam o vídeo. Use só fatos que você tem certeza; prefira menos fatos e corretos.")
     parts.append("Retorne JSON exatamente neste formato: " + json.dumps(SCRIPT_SCHEMA, ensure_ascii=False))
     return "\n".join(parts)
 

@@ -90,3 +90,57 @@ def test_api_answer_validates_json(client, manual_on):
     d = client.get("/api/dashboard").json()
     assert d["manual_mode"] is True and any(x["id"] == rid for x in d["manual_pending"])
     assert client.post(f"/api/manual-requests/{rid}/cancel").json()["status"] == "cancelled"
+
+
+def _curiosity_script(sources):
+    return {"title": "3 fatos sobre polvos", "music_mood": "curious",
+            "characters": [{"name": "Bia", "role": "main", "appearance": {"gender": "female"}}],
+            "locations": [{"name": "Estúdio", "setting_type": "lab", "time_of_day": "day"}],
+            "scenes": [{"index": 0, "title": "Gancho", "location": "Estúdio", "narration": "Polvos têm três corações."},
+                       {"index": 1, "title": "Fato", "location": "Estúdio", "narration": "E o sangue deles é azul."}],
+            "fact_claims": [{"claim": "Polvos têm três corações", "sources": sources, "confidence": 0.95},
+                            {"claim": "O sangue do polvo é azul", "sources": sources, "confidence": 0.9}],
+            "publication": {"title": "Polvos são estranhos", "description": "Sabia?", "hashtags": ["#curiosidades"]}}
+
+
+@pytest.mark.parametrize("reachable,expected", [(True, "awaiting_approval"), (False, "needs_review")])
+def test_curiosity_fact_check_is_automatic(db, channel, manual_on, monkeypatch, reachable, expected):
+    from app.models import ContentEngine
+    from app.services import factcheck
+
+    checked = []
+    monkeypatch.setattr(factcheck, "url_ok", lambda u: checked.append(u) or reachable)
+    eng = db.scalar(select(ContentEngine).where(ContentEngine.key == "curiosity"))
+    job = create_production(db, channel_id=channel.id, engine_id=eng.id, title="Curiosidade", autostart=False, target_duration_s=20)
+    assert advance(job.id) == "awaiting_input"
+    with SessionLocal() as s:
+        req = s.scalar(select(ManualRequest).where(ManualRequest.production_job_id == job.id))
+        assert "URL completa" in req.prompt
+        manual.answer(s, req, json.dumps(_curiosity_script(["https://pt.wikipedia.org/wiki/Polvo"])))
+        s.get(ProductionJob, job.id).status = "queued"
+        s.commit()
+    assert advance(job.id) == expected
+    assert checked == ["https://pt.wikipedia.org/wiki/Polvo"]  # a fonte foi realmente consultada
+    with SessionLocal() as s:
+        j = s.get(ProductionJob, job.id)
+        if not reachable:
+            assert any("sem fonte acessível" in r for r in j.config["review_reasons"])
+
+
+def test_trend_analysis_is_automatic_in_manual_mode(db, manual_on):
+    from app.integrations.trends.sources import TrendItem
+    from app.services import trends as tsvc
+
+    items = [TrendItem(name="Flamengo vence clássico no Maracanã", popularity=200000),
+             TrendItem(name="Acidente grave na rodovia deixa mortos", popularity=500000),
+             TrendItem(name="Lenda do fantasma da escola viraliza", popularity=8000)]
+    created = tsvc.upsert_items(db, None, items, region="BR", language="pt-BR")
+    db.commit()
+    out = tsvc.analyze(db, limit=100)
+    assert out["method"] == "automatic_rules"
+    by = {t.name: t for t in created}
+    for t in created:
+        db.refresh(t)
+    assert by["Flamengo vence clássico no Maracanã"].analysis["category"] == "esporte"
+    assert by["Acidente grave na rodovia deixa mortos"].analysis["sensitive"] and by["Acidente grave na rodovia deixa mortos"].score == 0
+    assert "horror" in by["Lenda do fantasma da escola viraliza"].analysis["adaptable_formats"]

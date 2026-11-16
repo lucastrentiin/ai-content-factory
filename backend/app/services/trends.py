@@ -110,21 +110,35 @@ def expire_old(db: Session) -> int:
     return n
 
 
+def analyze_rules(db: Session, trends: list[Trend]) -> dict:
+    from app.services.trend_heuristics import analyze_trend
+
+    for t in trends:
+        t.analysis = analyze_trend(t)
+        t.category = t.category or t.analysis["category"]
+        t.score = trend_score(t)
+    db.commit()
+    return {"analyzed": len(trends), "method": "automatic_rules", "sensitive": sum(1 for t in trends if t.analysis.get("sensitive"))}
+
+
 def analyze(db: Session, limit: int = 25) -> dict:
     """Trend Analyst: classifica categoria, potencial, sensibilidade e formatos adaptáveis."""
     pending = db.scalars(select(Trend).where(Trend.status != "expired", Trend.analysis == {}).order_by(Trend.popularity_value.desc()).limit(limit)).all()
     if not pending:
         return {"analyzed": 0}
-    if ProviderRouter(db).manual_llm():
-        return {"analyzed": 0, "skipped": "Análise automática indisponível no modo copiar e colar (as tendências seguem pontuadas por popularidade)"}
+    if ProviderRouter(db).manual_llm():  # sem LLM automático: análise por regras, totalmente automática
+        return analyze_rules(db, pending)
     payload = [{"name": t.name, "description": t.description, "category": t.category} for t in pending]
     prompt = ("Analise as tendências a seguir para um canal de vídeos curtos brasileiro. Para cada uma retorne: category, "
               "potential (0..1, potencial para vídeos originais), why (o que torna interessante), adaptable_formats "
               "(storytelling|series|comedy|horror|curiosity|experimental), sensitive (true se tragédia, crime real, política "
               "partidária, saúde sensível, pessoas reais em situação vulnerável). Formato {\"analyses\":[{\"name\":\"\",...}]}\n"
               + str(payload))
-    data, cand, simulated = llm_json(ProviderRouter(db), operation="trend_analysis", system=prompts.system_for("trend_analyst"),
+    try:
+        data, cand, simulated = llm_json(ProviderRouter(db), operation="trend_analysis", system=prompts.system_for("trend_analyst"),
                                      prompt=prompt, task={"type": "trend_analysis", "trends": payload}, max_tokens=6000)
+    except Exception:  # noqa: BLE001 — sem LLM disponível: análise por regras
+        return analyze_rules(db, pending)
     by_name = {a.get("name"): a for a in data.get("analyses", []) if isinstance(a, dict)}
     for t in pending:
         a = by_name.get(t.name)
