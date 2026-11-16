@@ -18,6 +18,16 @@ from app.services.common import audit
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+def is_https(request: Request) -> bool:
+    """Cookie 'Secure' só quando o navegador acessa por HTTPS (direto, via Caddy ou via Cloudflare/túnel).
+    Acesso pela rede local em http://IP continua funcionando."""
+    if request.url.scheme == "https":
+        return True
+    proto = request.headers.get("x-forwarded-proto", "").lower()
+    visitor = request.headers.get("cf-visitor", "").lower()
+    return "https" in proto or '"https"' in visitor
+
+
 @router.post("/login")
 def login(body: LoginIn, request: Request, response: Response, db: Session = Depends(get_db)):
     user = db.scalar(select(User).where(User.email == body.email.lower()))
@@ -27,7 +37,7 @@ def login(body: LoginIn, request: Request, response: Response, db: Session = Dep
         raise HTTPException(401, "E-mail ou senha inválidos")
     user.last_login_at = datetime.now(UTC)
     token = create_access_token(user.id, user.role)
-    response.set_cookie(COOKIE, token, httponly=True, samesite="lax", secure=settings.is_production,
+    response.set_cookie(COOKIE, token, httponly=True, samesite="lax", secure=is_https(request),
                         max_age=settings.access_token_minutes * 60, path="/")
     audit(db, "auth.login", user_id=user.id, ip=client_ip(request))
     db.commit()

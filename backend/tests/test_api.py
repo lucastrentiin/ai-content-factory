@@ -94,3 +94,18 @@ def test_api_token_auth(client):
     assert c.get("/api/engines", headers={"Authorization": f"Bearer {tok['token']}"}).status_code == 200
     client.delete(f"/api/api-tokens/{tok['id']}")
     assert c.get("/api/engines", headers={"Authorization": f"Bearer {tok['token']}"}).status_code == 401
+
+
+def test_login_cookie_secure_only_over_https():
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    c = TestClient(app)
+    body = {"email": "admin@example.com", "password": "admin12345"}
+    plain = c.post("/api/auth/login", json=body)
+    assert "secure" not in plain.headers["set-cookie"].lower()
+    cf = c.post("/api/auth/login", json=body, headers={"cf-visitor": '{"scheme":"https"}'})
+    assert "secure" in cf.headers["set-cookie"].lower()
+    fwd = c.post("/api/auth/login", json=body, headers={"x-forwarded-proto": "https"})
+    assert "secure" in fwd.headers["set-cookie"].lower()
