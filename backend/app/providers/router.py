@@ -123,6 +123,11 @@ class ProviderRouter:
             rec.circuit_open_until = datetime.now(UTC) + CIRCUIT_COOLDOWN
             rec.status = "error"
 
+    def manual_llm(self) -> bool:
+        """True se o LLM preferido é o modo copiar e colar (assinatura do Claude)."""
+        c = self.candidates("llm")
+        return bool(c) and c[0].rec.adapter == "manual_paste"
+
     def has_real(self, kind: str) -> bool:
         return any(not c.rec.is_simulated for c in self.candidates(kind, allow_simulated=False))
 
@@ -149,8 +154,24 @@ def parse_json(text: str) -> Any:
 
 
 def llm_json(router: ProviderRouter, *, operation: str, system: str, prompt: str, task: dict, max_tokens: int = 8000,
-             preferred: str | None = None, validate: Callable[[Any], Any] | None = None, attempts: int = 2) -> tuple[Any, Candidate, bool]:
-    """Chama o LLM esperando JSON; valida e repete em caso de saída inválida. Retorna (dados, candidato, simulado)."""
+             preferred: str | None = None, validate: Callable[[Any], Any] | None = None, attempts: int = 2,
+             resume: dict | None = None, agent: str | None = None) -> tuple[Any, Candidate, bool]:
+    """Chama o LLM esperando JSON; valida e repete em caso de saída inválida. Retorna (dados, candidato, simulado).
+    No modo copiar e colar, devolve a resposta colada pelo usuário ou lança AwaitingManualInput."""
+    cands = router.candidates("llm", preferred=preferred)
+    if cands and cands[0].rec.adapter == "manual_paste" and not preferred:
+        from app.providers import manual
+
+        def parse(text: str) -> Any:
+            d = parse_json(text)
+            return validate(d) if validate else d
+
+        data = manual.handle(router.db, operation=operation, system=system, prompt=prompt,
+                             production_job_id=router.ctx.production_job_id, channel_id=router.ctx.channel_id,
+                             agent=agent, parse=parse, resume=resume)
+        record_usage(router.db, router.ctx, provider_key=cands[0].rec.key, model_key="claude-chat", kind="llm",
+                     operation=operation, units={"manual": 1}, est_cost=0.0)
+        return data, cands[0], False
     last: Exception | None = None
     for _ in range(attempts):
         res, cand = router.call(

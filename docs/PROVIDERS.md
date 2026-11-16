@@ -11,6 +11,7 @@ definidas no `.env`. Preços cadastrados são **estimativas editáveis** — con
 | OpenAI | `OPENAI_API_KEY` | API Chat Completions |
 | OpenRouter | `OPENROUTER_API_KEY` | Acesso a dezenas de modelos com uma chave |
 | Ollama (local, grátis) | Rodar Ollama e definir `base_url` (ex.: `http://host.docker.internal:11434/v1`) | Qualidade depende do modelo; sem custo de API |
+| **Claude pela assinatura (copiar e colar)** | sua conta claude.ai (Pro/Max) | Sem API: a plataforma mostra o prompt, você cola no claude.ai e traz a resposta. Um colar por vídeo (o roteiro já traz título, legenda e hashtags) e um por geração de ideias. No modo copiar e colar, revisão por LLM e análise automática de tendências ficam desativadas e curiosidades sempre vão para revisão humana. As produções automáticas param esperando você. |
 | Gerador de modelos | nada | **SIMULADO** — não é IA; só para testar o fluxo |
 
 ## Imagens (cenas cinematográficas, fundos por IA)

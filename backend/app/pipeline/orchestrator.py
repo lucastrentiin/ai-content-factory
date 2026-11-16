@@ -16,7 +16,14 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.db import SessionLocal
-from app.core.errors import BudgetExceeded, Conflict, FactoryError, NotFound, ValidationFailed
+from app.core.errors import (
+    AwaitingManualInput,
+    BudgetExceeded,
+    Conflict,
+    FactoryError,
+    NotFound,
+    ValidationFailed,
+)
 from app.core.events import publish_event, redis_client
 from app.core.logging import get_logger
 from app.models import (
@@ -239,6 +246,14 @@ def _execute(db: Session, job: ProductionJob, run: AgentRun) -> str:
         run.error_code = str(code)[:40]
         run.events = [*(run.events or []), {"ts": datetime.now(UTC).isoformat(), "msg": "erro", "data": {"trace": traceback.format_exc()[-3000:]}}]
         _close_run(db, run, t0)
+        if isinstance(exc, AwaitingManualInput):
+            run.status, run.error, run.error_code, run.attempts = StepStatus.waiting, None, None, max(0, run.attempts - 1)
+            job.status, job.error = JobStatus.awaiting_input, None
+            notify(db, f"Cole a resposta do Claude: {job.title}", "A produção está esperando o roteiro. Copie o prompt, cole no Claude e traga a resposta.",
+                   level="warning", category="production", link=f"/production/{job.id}", dedupe_key=f"manual:{exc.request_id}")
+            db.commit()
+            publish_event("production.awaiting_input", {"id": job.id, "request_id": exc.request_id})
+            return "awaiting_input"
         if isinstance(exc, BudgetExceeded):
             run.status = StepStatus.failed
             job.status, job.error = JobStatus.blocked_budget, msg
@@ -393,7 +408,7 @@ def continue_manual(db: Session, job_id: int, *, user_id: int | None = None) -> 
 def resume(db: Session, job_id: int, *, user_id: int | None = None) -> ProductionJob:
     """Retoma produção falha/bloqueada a partir da etapa que falhou."""
     job = _get(db, job_id)
-    if job.status not in (JobStatus.failed, JobStatus.blocked_budget, JobStatus.paused):
+    if job.status not in (JobStatus.failed, JobStatus.blocked_budget, JobStatus.paused, JobStatus.awaiting_input):
         raise Conflict("Somente produções falhas, bloqueadas ou pausadas podem ser retomadas")
     agent = _next_pending(db, job.id)
     if not agent:

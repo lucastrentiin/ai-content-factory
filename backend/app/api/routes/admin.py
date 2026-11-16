@@ -58,11 +58,17 @@ def dashboard(db: Session = Depends(get_db), _: User = Depends(viewer)):
     simulated = [p.name for p in db.scalars(select(ModelProvider).where(ModelProvider.is_simulated.is_(True), ModelProvider.is_enabled.is_(True)))]
     real_llm = [p for p in db.scalars(select(ModelProvider).where(ModelProvider.kind == "llm", ModelProvider.is_simulated.is_(False),
                                                                     ModelProvider.is_enabled.is_(True)))
-                if provider_view(db, p)["status"] == "configured"]
+                if provider_view(db, p)["status"] in ("configured", "manual")]
+    manual = db.scalar(select(ModelProvider).where(ModelProvider.adapter == "manual_paste"))
+    from app.models import ManualRequest
+
+    pending_manual = db.scalars(select(ManualRequest).where(ManualRequest.status == "pending").order_by(ManualRequest.created_at)).all()
     return {"overview": ov, "costs": {k: costs[k] for k in ("today_usd", "month_usd", "total_usd", "avg_cost_per_video_usd", "by_day")},
             "recent_productions": [job_summary(db, j) for j in recent_jobs], "upcoming": [serialize(p) for p in upcoming],
             "activity": [serialize(a, exclude={"events", "input", "output"}) for a in activity], "alerts": [serialize(n) for n in alerts],
             "factory": get_setting(db, "automation"), "simulated_providers_enabled": simulated, "has_real_llm": bool(real_llm),
+            "manual_mode": bool(manual and manual.is_enabled),
+            "manual_pending": [serialize(r, exclude={"prompt", "response"}) for r in pending_manual],
             "channels": db.scalar(select(func.count()).select_from(Channel)) or 0}
 
 

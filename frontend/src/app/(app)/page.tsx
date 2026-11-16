@@ -1,12 +1,17 @@
 "use client";
 import Link from "next/link";
 import useSWR from "swr";
+import { useState } from "react";
 import { AreaSeries } from "@/components/Charts";
-import { Empty, Loading, Panel, Pill, Simulated, Stat } from "@/components/ui";
+import { ManualPrompt } from "@/components/ManualPrompt";
+import { Button, Empty, Loading, Modal, Panel, Pill, Simulated, Stat, useAction } from "@/components/ui";
+import { api } from "@/lib/api";
 import { ago, dt, int, JOB_STATUS, PLATFORM, STEP_LABEL, usd } from "@/lib/format";
 
 export default function Dashboard() {
-  const { data, error } = useSWR("/dashboard", { refreshInterval: 30000 });
+  const { data, error, mutate } = useSWR("/dashboard", { refreshInterval: 30000 });
+  const [manualReq, setManualReq] = useState<number | null>(null);
+  const { busy, run } = useAction();
   if (error) return <Empty title="Não foi possível carregar o painel">{error.message}</Empty>;
   if (!data) return <Loading />;
   const o = data.overview;
@@ -25,11 +30,32 @@ export default function Dashboard() {
         </Empty>
       )}
       {!data.has_real_llm && (
-        <div className="rounded-[var(--radius-frame)] border border-cue/50 bg-cue-soft px-4 py-3 text-sm">
-          <strong>Sem modelo de linguagem configurado.</strong> Roteiros e ideias estão vindo do gerador de modelos interno <Simulated />, que não é IA.
-          Adicione uma chave da Anthropic, OpenAI, OpenRouter ou um Ollama local em <Link href="/settings" className="font-medium text-reel">Configurações</Link>.
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-frame)] border border-cue/50 bg-cue-soft px-4 py-3 text-sm">
+          <span className="max-w-3xl"><strong>Sem modelo de linguagem configurado.</strong> Roteiros e ideias estão vindo do gerador de modelos interno <Simulated />, que não é IA.
+          Use o Claude da sua assinatura copiando e colando, ou adicione uma chave de API em <Link href="/settings" className="font-medium text-reel">Configurações</Link>.</span>
+          <Button variant="primary" busy={busy === "m"} onClick={() => run("m", async () => { await api("/manual-mode", { body: { enabled: true } }); mutate(); }, "Modo copiar e colar ativado")}>Usar o Claude da minha assinatura</Button>
         </div>
       )}
+      {data.manual_mode && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-frame)] border border-reel/30 bg-reel-soft px-4 py-3 text-sm">
+          <span><strong>Modo copiar e colar ativo.</strong> Cada vídeo e cada geração de ideias pede uma resposta do Claude que você cola aqui.
+            {data.manual_pending.length > 0 ? ` ${data.manual_pending.length} pedido(s) esperando você.` : " Nenhum pedido pendente."}</span>
+          <Button variant="quiet" busy={busy === "off"} onClick={() => run("off", async () => { await api("/manual-mode", { body: { enabled: false } }); mutate(); }, "Modo copiar e colar desativado")}>Desativar</Button>
+        </div>
+      )}
+      {data.manual_pending.length > 0 && (
+        <Panel title="Respostas do Claude esperando você" flush>
+          <ul>{data.manual_pending.map((r: any) => (
+            <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-line/70 px-4 py-3 text-sm last:border-0">
+              <span><strong>{r.title}</strong>{r.production_job_id && <span className="text-muted"> · produção #{r.production_job_id}</span>}{r.error && <span className="text-onair"> · resposta anterior inválida</span>}</span>
+              {r.production_job_id ? <Link href={`/production/${r.production_job_id}`}><Button size="sm" variant="primary">Responder</Button></Link>
+                : <Button size="sm" variant="primary" onClick={() => setManualReq(r.id)}>Responder</Button>}
+            </li>))}</ul>
+        </Panel>
+      )}
+      <Modal open={!!manualReq} onClose={() => setManualReq(null)} title="Resposta do Claude" wide>
+        {manualReq && <ManualPrompt compact requestId={manualReq} onDone={() => { setManualReq(null); mutate(); }} />}
+      </Modal>
 
       <section className="grid grid-cols-2 gap-x-6 gap-y-5 rounded-[var(--radius-frame)] border border-line bg-surface p-5 md:grid-cols-4 xl:grid-cols-7">
         <Stat label="Vídeos produzidos" value={int(o.videos_produced)} />

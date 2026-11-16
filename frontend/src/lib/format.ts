@@ -20,6 +20,7 @@ export const JOB_STATUS: Record<string, { label: string; tone: Tone }> = {
   queued: { label: "Na fila", tone: "neutral" },
   running: { label: "Produzindo", tone: "onair" },
   paused: { label: "Aguardando você", tone: "cue" },
+  awaiting_input: { label: "Cole a resposta do Claude", tone: "cue" },
   awaiting_approval: { label: "Aguardando aprovação", tone: "cue" },
   needs_review: { label: "Precisa de revisão", tone: "cue" },
   approved: { label: "Aprovado", tone: "preview" },

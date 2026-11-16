@@ -32,6 +32,8 @@ SCRIPT_SCHEMA = {
     "fact_claims": [{"claim": "afirmação factual", "source": "fonte verificável (URL ou referência) ou null"}],
     "hashtags": ["string"],
     "next_episode_hook": "string (apenas séries)",
+    "publication": {"title": "título para as redes (<= 90 caracteres)", "description": "legenda/descrição curta com chamada para comentar",
+                    "hashtags": ["#hashtag (até 5)"]},
 }
 
 
@@ -68,7 +70,9 @@ def ideas_prompt(*, channel: dict, engine: dict, trends: list[dict], count: int,
         + f"Gere {count} ideias distintas. Formato JSON: {{\"ideas\": [{{\"title\":\"\",\"description\":\"\",\"hook\":\"\","
         f"\"format\":\"narrated_story|dialogue_story|pov|sketch|episode|explainer|list|analog_horror|relato|trend_remix\","
         f"\"category\":\"\",\"target_audience\":\"\",\"duration_s\":45,\"visual_style\":\"stickman|cartoon|cinematic\","
-        f"\"trend\":\"nome da tendência usada ou null\",\"continuation_potential\":0.0}}]}}"
+        f"\"trend\":\"nome da tendência usada ou null\",\"continuation_potential\":0.0,"
+        f"\"attention\":0.0,\"retention\":0.0,\"shareability\":0.0,\"originality\":0.0}}]}} "
+        "(attention, retention, shareability e originality são sua avaliação honesta de 0 a 1)"
     )
 
 

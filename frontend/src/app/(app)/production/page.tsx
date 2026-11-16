@@ -25,7 +25,9 @@ function ProductionList() {
         <Select value={status} onChange={(e) => { setStatus(e.target.value); setOffset(0); }} className="w-56" aria-label="Filtrar por status">
           <option value="">Todos os status</option>
           <option value="queued,running">Em produção</option>
+          <option value="awaiting_approval,needs_review,awaiting_input">Precisa de você</option>
           <option value="awaiting_approval,needs_review">Aguardando aprovação/revisão</option>
+          <option value="awaiting_input">Aguardando resposta do Claude</option>
           <option value="paused">Pausadas (modo manual)</option>
           <option value="completed">Concluídas</option>
           <option value="failed,blocked_budget">Com problema</option>

@@ -49,3 +49,13 @@ class MissingCredentials(FactoryError):
 
 class IntegrationNotAuthorized(FactoryError):
     code = "integration_not_authorized"
+
+
+class AwaitingManualInput(FactoryError):
+    """O LLM ativo é o modo copiar e colar: o usuário precisa levar o prompt ao Claude e colar a resposta."""
+
+    code = "awaiting_input"
+
+    def __init__(self, request_id: int, message: str = "Aguardando você colar a resposta do Claude"):
+        super().__init__(message, details={"manual_request_id": request_id})
+        self.request_id = request_id

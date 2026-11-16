@@ -27,6 +27,7 @@ class JobStatus(StrEnum):
     queued = "queued"
     running = "running"
     paused = "paused"  # modo manual: aguarda comando para próxima etapa
+    awaiting_input = "awaiting_input"  # aguardando o usuário colar a resposta do LLM (copiar e colar)
     awaiting_approval = "awaiting_approval"
     needs_review = "needs_review"
     approved = "approved"

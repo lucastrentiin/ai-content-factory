@@ -18,6 +18,7 @@ from app.api.routes import (
     channels,
     content,
     library,
+    manual,
     production,
     publishing,
     trends_ideas,
@@ -26,6 +27,7 @@ from app.api.routes import (
 from app.core.config import settings
 from app.core.db import SessionLocal
 from app.core.errors import (
+    AwaitingManualInput,
     BudgetExceeded,
     Conflict,
     FactoryError,
@@ -53,7 +55,7 @@ app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan, docs_
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_list, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-STATUS = {NotFound: 404, ValidationFailed: 422, Conflict: 409, BudgetExceeded: 402, MissingCredentials: 424}
+STATUS = {AwaitingManualInput: 202, NotFound: 404, ValidationFailed: 422, Conflict: 409, BudgetExceeded: 402, MissingCredentials: 424}
 
 
 @app.exception_handler(FactoryError)
@@ -94,5 +96,5 @@ def ready():
 
 
 for r in (auth.router, channels.router, trends_ideas.router, content.router, library.router, production.router,
-          publishing.router, analytics.router, admin.router, ws.router):
+          publishing.router, analytics.router, admin.router, manual.router, ws.router):
     app.include_router(r, prefix="/api")

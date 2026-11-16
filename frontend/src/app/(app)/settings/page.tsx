@@ -8,7 +8,7 @@ import { ago, dt } from "@/lib/format";
 type T = "providers" | "engines" | "automation" | "workflows" | "users" | "tokens" | "logs" | "audit";
 const KIND: Record<string, string> = { llm: "Linguagem (roteiros e ideias)", image: "Imagens", video: "Vídeo por IA", tts: "Voz (TTS)", music: "Música" };
 const PSTATUS: Record<string, { label: string; tone: any }> = { configured: { label: "Configurado", tone: "preview" }, missing_credentials: { label: "Faltam credenciais", tone: "cue" },
-  unavailable: { label: "Indisponível", tone: "onair" }, simulated: { label: "Simulado", tone: "cue" }, error: { label: "Erro", tone: "onair" }, disabled: { label: "Desativado", tone: "neutral" },
+  unavailable: { label: "Indisponível", tone: "onair" }, simulated: { label: "Simulado", tone: "cue" }, manual: { label: "Copiar e colar", tone: "reel" }, error: { label: "Erro", tone: "onair" }, disabled: { label: "Desativado", tone: "neutral" },
   circuit_open: { label: "Pausado após falhas", tone: "onair" }, unknown: { label: "Desconhecido", tone: "neutral" } };
 
 export default function Settings() {

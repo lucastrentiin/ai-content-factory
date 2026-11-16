@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import useSWR from "swr";
+import { ManualPrompt } from "@/components/ManualPrompt";
 import { Button, Empty, Field, Input, Loading, Modal, PageHeader, Pager, Pill, Select, Simulated, Textarea, useAction } from "@/components/ui";
 import { api, qs } from "@/lib/api";
 import { usd } from "@/lib/format";
@@ -104,11 +105,20 @@ function IdeaModal({ idea, onClose, onChanged }: { idea: any; onClose: () => voi
 
 function GenerateModal({ open, onClose, channels, engines, onDone }: any) {
   const [f, setF] = useState({ channel_id: "", engine_id: "", count: 8 });
+  const [manualId, setManualId] = useState<number | null>(null);
   const { busy, run } = useAction();
+  const close = () => { setManualId(null); onClose(); };
+  if (manualId) return (
+    <Modal open={open} onClose={close} title="Gerar ideias com o Claude" wide>
+      <ManualPrompt compact requestId={manualId} onDone={(r) => { if (r?.created) { onDone(); close(); } else if (r === null) close(); }} />
+    </Modal>
+  );
   return (
-    <Modal open={open} onClose={onClose} title="Gerar ideias" footer={<Button variant="primary" disabled={!f.channel_id} busy={!!busy} onClick={() => run("g", async () => {
-      const r = await api("/ideas/generate", { body: { channel_id: +f.channel_id, engine_id: f.engine_id ? +f.engine_id : null, count: f.count } }); onDone(); onClose(); return r;
-    }, "Ideias geradas e pontuadas")}>Gerar {f.count} ideias</Button>}>
+    <Modal open={open} onClose={close} title="Gerar ideias" footer={<Button variant="primary" disabled={!f.channel_id} busy={!!busy} onClick={() => run("g", async () => {
+      const r = await api("/ideas/generate", { body: { channel_id: +f.channel_id, engine_id: f.engine_id ? +f.engine_id : null, count: f.count } });
+      if (r?.code === "awaiting_input") { setManualId(r.details.manual_request_id); return r; }
+      onDone(); close(); return r;
+    })}>Gerar {f.count} ideias</Button>}>
       <div className="space-y-4">
         <Field label="Canal"><Select value={f.channel_id} onChange={(e) => setF({ ...f, channel_id: e.target.value })}><option value="">Escolha…</option>{channels.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
         <Field label="Motor" hint="Sem escolha, usa o motor de maior peso no canal."><Select value={f.engine_id} onChange={(e) => setF({ ...f, engine_id: e.target.value })}><option value="">Automático</option>{engines.filter((e: any) => e.is_active).map((e: any) => <option key={e.id} value={e.id}>{e.name}</option>)}</Select></Field>

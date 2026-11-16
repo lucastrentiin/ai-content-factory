@@ -27,7 +27,7 @@ from app.models.content import (
     Universe,
     Voice,
 )
-from app.models.production import AgentRun, ProductionJob, RenderJob, Scene
+from app.models.production import AgentRun, ManualRequest, ProductionJob, RenderJob, Scene
 from app.models.providers import ApiUsage, CostLimit, ModelProvider, ProviderModel, Workflow
 from app.models.publishing import (
     Experiment,
@@ -44,7 +44,7 @@ __all__ = [
     "Asset", "Character", "CharacterAppearance", "CharacterAsset", "CharacterRelationship", "Episode", "Idea",
     "IdeaTrend", "Location", "Script", "ScriptVersion", "Series", "Template", "Trend", "TrendSnapshot",
     "TrendSource", "Universe", "Voice", "AgentRun", "ProductionJob", "RenderJob", "Scene", "ApiUsage",
-    "CostLimit", "ModelProvider", "ProviderModel", "Workflow", "Experiment", "ExperimentVariant",
+    "CostLimit", "ManualRequest", "ModelProvider", "ProviderModel", "Workflow", "Experiment", "ExperimentVariant",
     "OptimizationDecision", "Publication", "PublicationMetric", "StrategyArm", "ApiToken", "AuditLog",
     "Notification", "SystemLog", "SystemSetting", "User",
 ]

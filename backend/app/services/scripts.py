@@ -101,6 +101,7 @@ def normalize_script(data: dict) -> dict:
         "fact_claims": [c for c in (data.get("fact_claims") or []) if isinstance(c, dict) and c.get("claim")],
         "hashtags": [str(h).lstrip("#") for h in (data.get("hashtags") or [])][:10],
         "next_episode_hook": _s(data.get("next_episode_hook")),
+        "publication": data.get("publication") if isinstance(data.get("publication"), dict) else {},
     }
 
 

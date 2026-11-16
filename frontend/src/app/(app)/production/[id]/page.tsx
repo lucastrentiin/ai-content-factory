@@ -3,6 +3,7 @@ import Link from "next/link";
 import { use, useState } from "react";
 import useSWR from "swr";
 import { FilmStrip } from "@/components/FilmStrip";
+import { ManualPrompt } from "@/components/ManualPrompt";
 import { Button, Empty, Field, Input, Loading, Modal, Panel, Pill, Select, Simulated, Tabs, Textarea, useAction } from "@/components/ui";
 import { api } from "@/lib/api";
 import { dt, JOB_STATUS, ms, PLATFORM, PUB_STATUS, secs, STEP_LABEL, usd } from "@/lib/format";
@@ -15,10 +16,10 @@ export default function ProductionDetail({ params }: { params: Promise<{ id: str
   const [reject, setReject] = useState(false);
   const { busy, run } = useAction();
   if (error) return <Empty title="Produção não encontrada">{error.message}</Empty>;
-  if (!j) return <Loading />;
+  if (!j || !j.steps) return <Loading />;
   const st = JOB_STATUS[j.status] || { label: j.status, tone: "neutral" as const };
   const act = (key: string, path: string, msg: string, body?: unknown) => run(key, async () => { await api(`/productions/${id}/${path}`, { method: "POST", body: body ?? {} }); await mutate(); }, msg);
-  const failedStep = j.steps.find((s: any) => s.status === "failed");
+  const failedStep = (j.steps || []).find((s: any) => s.status === "failed");
   return (
     <div className="space-y-6">
       <div>
@@ -43,6 +44,8 @@ export default function ProductionDetail({ params }: { params: Promise<{ id: str
           </div>
         </div>
       </div>
+
+      {j.status === "awaiting_input" && <AwaitingInput jobId={j.id} onDone={mutate} />}
 
       <section className="rounded-[var(--radius-frame)] bg-ink p-4 text-white">
         <div className="mb-2 flex items-center justify-between text-sm">
@@ -86,6 +89,18 @@ export default function ProductionDetail({ params }: { params: Promise<{ id: str
       <StepModal j={j} agent={stepOpen} onClose={() => setStepOpen(null)} onRerun={(a) => act("rr", "rerun", `Reprocessando a partir de ${STEP_LABEL[a]}`, { step: a })} />
       <RejectModal open={reject} onClose={() => setReject(false)} onConfirm={(reason) => { setReject(false); act("rj", "reject", "Produção rejeitada", { reason }); }} />
     </div>
+  );
+}
+
+function AwaitingInput({ jobId, onDone }: { jobId: number; onDone: () => void }) {
+  const { data } = useSWR(`/manual-requests?production_job_id=${jobId}&status=pending,answered`);
+  const req = data?.[0];
+  return (
+    <section className="rounded-[var(--radius-frame)] border-2 border-cue bg-cue-soft/50 p-4">
+      <h2>{req?.title || "Resposta do Claude"}: falta só você</h2>
+      <p className="mb-4 mt-1 text-sm text-muted">Esta produção usa o Claude pela sua assinatura. É um único copiar e colar por vídeo: o resto (personagens, voz, animação, legendas e publicação) a fábrica faz sozinha.</p>
+      {req ? <ManualPrompt requestId={req.id} onDone={onDone} /> : <Loading />}
+    </section>
   );
 }
 
@@ -181,7 +196,7 @@ function Steps({ j, onOpen }: { j: any; onOpen: (a: string) => void }) {
 }
 
 function StepModal({ j, agent, onClose, onRerun }: { j: any; agent: string | null; onClose: () => void; onRerun: (a: string) => void }) {
-  const s = j.steps.find((x: any) => x.agent === agent);
+  const s = (j.steps || []).find((x: any) => x.agent === agent);
   return (
     <Modal open={!!s} onClose={onClose} title={s ? STEP_LABEL[s.agent] : ""} wide
       footer={s && <Button disabled={j.status === "running"} onClick={() => { onRerun(s.agent); onClose(); }}>Reprocessar a partir desta etapa</Button>}>

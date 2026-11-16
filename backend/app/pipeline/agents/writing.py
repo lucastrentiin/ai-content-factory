@@ -76,7 +76,7 @@ def story_writer(ctx: StepContext) -> dict:
                 "engine_type": ctx.engine.engine_type, "target_duration_s": target, "variant": variant or "",
                 "characters": [{"name": c.name} for c in chars[:2]] if series else []}
         content, cand, simulated = llm_json(ctx.router, operation="write_script", system=system, prompt=prompt, task=task,
-                                            max_tokens=12000, validate=normalize_script)
+                                            max_tokens=12000, validate=normalize_script, agent="story_writer")
         provider_key = f"{cand.rec.key}:{cand.model_key}"
         if simulated:
             ctx.mark_simulated("llm")
@@ -121,6 +121,10 @@ def script_editor(ctx: StepContext) -> dict:
     if long_lines:
         issues.append(f"{len(long_lines)} fala(s) longa(s) demais para vídeo curto")
     review = {"deterministic_issues": issues}
+    if ctx.router.manual_llm():  # modo copiar e colar: só checagens automáticas (um único colar por vídeo)
+        v.review = {**review, "llm": None, "note": "Revisão por LLM desativada no modo copiar e colar"}
+        ctx.script().status = "approved"
+        return {"issues": issues, "llm_review": None, "new_version": None, "estimated_duration_s": est, "manual_mode": True}
     system = prompts.system_for("script_editor", language=ctx.channel.language, region=ctx.channel.region, engine=_engine_dict(ctx))
     data, cand, simulated = llm_json(ctx.router, operation="review_script", system=system,
                                      prompt=prompts.review_prompt(content, target),
@@ -151,6 +155,13 @@ def fact_checker(ctx: StepContext) -> dict:
         return {"skipped": True, "reason": "Motor não exige verificação de fatos"}
     v = ctx.script_version()
     claims = v.content.get("fact_claims") or [{"claim": s["narration"], "source": None} for s in v.content["scenes"] if s["narration"]]
+    if ctx.router.manual_llm():
+        reason = f"Verifique manualmente {len(claims)} afirmação(ões) e as fontes indicadas no roteiro antes de aprovar"
+        ctx.job.config = {**(ctx.job.config or {}), "force_review": True,
+                          "review_reasons": [*(ctx.job.config or {}).get("review_reasons", []), reason]}
+        v.content = {**v.content, "fact_check": [{"claim": c.get("claim"), "verified": False, "sources": [c["source"]] if c.get("source") else [],
+                                                   "note": "Fonte indicada pelo roteiro — confira"} for c in claims]}
+        return {"claims": len(claims), "unverified": len(claims), "manual_mode": True}
     data, cand, simulated = llm_json(ctx.router, operation="fact_check", system=prompts.system_for("fact_checker"),
                                      prompt=prompts.fact_check_prompt(claims), task={"type": "fact_check", "claims": claims},
                                      max_tokens=6000)

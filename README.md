@@ -12,7 +12,7 @@ narra, renderiza, revisa a qualidade, publica e aprende com os resultados — co
 
 | Parte | Sem credenciais | Com credenciais |
 |---|---|---|
-| Roteiros e ideias | Gerador de modelos interno — **SIMULADO**, marcado na interface | Claude, OpenAI, OpenRouter, Ollama local |
+| Roteiros e ideias | **Claude pela sua assinatura (copiar e colar)** — um colar por vídeo; ou gerador interno **SIMULADO** | Claude (API), OpenAI, OpenRouter, Ollama local |
 | Animação 2D (stickman/cartoon), cenários, câmera, lip-sync | Motor próprio (Skia + FFmpeg), sem custo | — |
 | Imagens / vídeo por IA | Cenas caem para animação 2D | OpenAI Images, Stability, Replicate (FLUX, Kling, MiniMax) |
 | Voz | eSpeak NG local (qualidade básica) | ElevenLabs, OpenAI TTS |
@@ -33,11 +33,11 @@ docker compose up -d --build
 ```
 
 Abra `http://IP_DO_SERVIDOR` e entre com `FIRST_ADMIN_EMAIL` / `FIRST_ADMIN_PASSWORD`.
-Guia completo (domínio, HTTPS, firewall, backups, atualização): **[docs/DEPLOY_UBUNTU.md](docs/DEPLOY_UBUNTU.md)**.
+**Passo a passo para iniciantes: [docs/GUIA_DE_USO.md](docs/GUIA_DE_USO.md).** Guia técnico (domínio, HTTPS, backups): **[docs/DEPLOY_UBUNTU.md](docs/DEPLOY_UBUNTU.md)**.
 
 Primeiros passos na interface:
 1. **Canais → Novo canal** (nicho, idioma, estilo, autonomia, vídeos/dia).
-2. **Configurações → Provedores**: cole a chave de pelo menos um LLM (recomendado: Anthropic) — opcional.
+2. Na Visão geral, **"Usar o Claude da minha assinatura"** (copiar e colar, sem API) — ou cole uma chave de API em **Configurações → Provedores**.
 3. **Ideias → Gerar ideias** e **Produzir** a melhor. Acompanhe em **Produção** (película das 12 etapas) e **Monitor**.
 4. **Aprovar e agendar** o vídeo. Conecte as contas em **Canais → Contas conectadas** para publicar pela API.
 
@@ -85,7 +85,7 @@ createdb factory_test    # banco dedicado; os testes recriam o schema
 cd backend && .venv/bin/pytest -q
 ```
 
-28 testes cobrem: produção de ponta a ponta (vídeo real 1080×1920 com áudio), cache de cenas e
+31 testes cobrem: modo copiar e colar (um colar por vídeo, resposta inválida reaberta), produção de ponta a ponta (vídeo real 1080×1920 com áudio), cache de cenas e
 re-renderização de uma única cena, modo manual, revisão obrigatória de curiosidades, fallback entre provedores,
 circuit breaker, bloqueio por orçamento, permissões, proteção de credenciais, agendamento, publicação assistida,
 aprendizado com amostra mínima, teste A/B com significância e estatística.

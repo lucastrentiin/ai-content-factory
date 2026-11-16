@@ -115,6 +115,8 @@ def analyze(db: Session, limit: int = 25) -> dict:
     pending = db.scalars(select(Trend).where(Trend.status != "expired", Trend.analysis == {}).order_by(Trend.popularity_value.desc()).limit(limit)).all()
     if not pending:
         return {"analyzed": 0}
+    if ProviderRouter(db).manual_llm():
+        return {"analyzed": 0, "skipped": "Análise automática indisponível no modo copiar e colar (as tendências seguem pontuadas por popularidade)"}
     payload = [{"name": t.name, "description": t.description, "category": t.category} for t in pending]
     prompt = ("Analise as tendências a seguir para um canal de vídeos curtos brasileiro. Para cada uma retorne: category, "
               "potential (0..1, potencial para vídeos originais), why (o que torna interessante), adaptable_formats "

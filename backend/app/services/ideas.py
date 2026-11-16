@@ -86,7 +86,9 @@ def generate_ideas(db: Session, *, channel_id: int, engine_id: int | None = None
         task={"type": "ideas", "engine_type": engine.engine_type, "trends": tr_payload, "count": count, "niche": channel.niche,
               "visual_style": channel.visual_style, "target_duration_s": channel.default_duration_s, "audience": channel.target_audience,
               "series_title": series.title if series else None, "seed": str(db.scalar(select(Idea.id).order_by(Idea.id.desc()).limit(1)) or 0)},
-        max_tokens=8000)
+        max_tokens=8000, agent="idea_generator",
+        resume={"kind": "generate_ideas", "params": {"channel_id": channel_id, "engine_id": engine.id, "count": count,
+                                                      "trend_ids": trend_ids, "series_id": series_id}})
     created = []
     trend_by_name = {t.name: t for t in trends}
     for raw in data.get("ideas", [])[:count]:
@@ -104,7 +106,8 @@ def generate_ideas(db: Session, *, channel_id: int, engine_id: int | None = None
                     origin="series" if series_id else ("trend" if raw.get("trend") else "generated"),
                     generated_by=f"{cand.rec.key}:{cand.model_key}", is_simulated=simulated, dedupe_hash=h,
                     data={"protagonist": raw.get("protagonist"), "trend": raw.get("trend"),
-                          "continuation_potential": raw.get("continuation_potential")})
+                          "continuation_potential": raw.get("continuation_potential"),
+                          "self_scores": {k: raw[k] for k in ("attention", "retention", "shareability", "originality") if k in raw}})
         db.add(idea)
         db.flush()
         t = trend_by_name.get(raw.get("trend"))
@@ -124,12 +127,16 @@ def evaluate_ideas(db: Session, ideas: list[Idea], *, router: ProviderRouter | N
     channel = db.get(Channel, ideas[0].channel_id) if ideas[0].channel_id else None
     router = router or ProviderRouter(db)
     payload = [{"title": i.title, "description": i.description, "hook": i.hook, "format": i.format} for i in ideas]
-    try:
+    if router.manual_llm():  # copiar e colar: usa a autoavaliação que veio junto com as ideias (sem segundo colar)
+        evals = {k: {**(i.data or {}).get("self_scores", {}), "rationale": "Autoavaliação do Claude (modo copiar e colar)"} for k, i in enumerate(ideas)}
+        simulated = False
+    else:
+      try:
         data, cand, simulated = llm_json(router, operation="evaluate_ideas", system=prompts.system_for("idea_evaluator"),
                                          prompt=prompts.evaluate_prompt(payload, {"name": channel.name if channel else "", "niche": channel.niche if channel else ""}),
                                          task={"type": "evaluate_ideas", "ideas": payload}, max_tokens=4000)
         evals = {int(e.get("index", -1)): e for e in data.get("evaluations", []) if isinstance(e, dict)}
-    except Exception:  # noqa: BLE001 — avaliação heurística mesmo sem LLM
+      except Exception:  # noqa: BLE001 — avaliação heurística mesmo sem LLM
         evals, simulated = {}, True
     weights = {**DEFAULT_WEIGHTS, **((channel.settings or {}).get("idea_weights", {}) if channel else {})}
     for i, idea in enumerate(ideas):

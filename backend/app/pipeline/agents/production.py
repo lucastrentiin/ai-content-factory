@@ -354,7 +354,13 @@ def publisher(ctx: StepContext) -> dict:
         plat = ctx.db.scalar(select(Platform).where(Platform.key == key))
         if not plat:
             continue
-        data, cand, simulated = llm_json(
+        pub_meta = content.get("publication") or {}
+        if ctx.router.manual_llm():
+            data = {"title": pub_meta.get("title") or v.title, "description": pub_meta.get("description") or v.synopsis,
+                    "hashtags": pub_meta.get("hashtags") or content.get("hashtags", [])}
+            simulated = False
+        else:
+          data, cand, simulated = llm_json(
             ctx.router, operation="publication_metadata", system=prompts.system_for("publisher", language=ctx.channel.language),
             prompt=prompts.metadata_prompt(title=v.title, synopsis=v.synopsis, platform=plat.name, max_title=plat.max_title_len,
                                            max_hashtags=plat.max_hashtags, language=ctx.channel.language, hashtags=content.get("hashtags", [])),

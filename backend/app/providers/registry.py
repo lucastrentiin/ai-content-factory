@@ -12,6 +12,7 @@ from app.models import ModelProvider, ProviderModel
 from app.providers.base import BaseProvider
 from app.providers.image.adapters import OpenAIImage, ReplicateImage, StabilityImage
 from app.providers.llm.anthropic_provider import AnthropicLLM
+from app.providers.llm.manual_provider import ManualPasteLLM
 from app.providers.llm.openai_compatible import OpenAICompatibleLLM
 from app.providers.llm.template_provider import TemplateLLM
 from app.providers.music.procedural import ProceduralMusic
@@ -20,7 +21,7 @@ from app.providers.video.adapters import ReplicateVideo
 
 ADAPTERS: dict[str, type[BaseProvider]] = {
     cls.adapter: cls
-    for cls in (AnthropicLLM, OpenAICompatibleLLM, TemplateLLM, OpenAIImage, StabilityImage, ReplicateImage,
+    for cls in (AnthropicLLM, OpenAICompatibleLLM, TemplateLLM, ManualPasteLLM, OpenAIImage, StabilityImage, ReplicateImage,
                 ReplicateVideo, ElevenLabsTTS, OpenAITTS, EspeakTTS, ProceduralMusic)
 }
 
